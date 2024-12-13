@@ -13,6 +13,7 @@ const DraggableWithZones = () => {
     { id: 3, color: 'bg-yellow-500', text: 'Item 3' },
     { id: 4, color: 'bg-purple-500', text: 'Item 4' }
   ]);
+  const [dragOverItemId, setDragOverItemId] = React.useState(null);
 
   const handleDragStart = (item) => {
     setDraggedItem(item);
@@ -35,31 +36,55 @@ const DraggableWithZones = () => {
 
     setAvailableItems(prev => prev.filter(item => item.id !== draggedItem.id));
     setDraggedItem(null);
+    setDragOverItemId(null);
   };
 
   const handleDropToAvailable = (e) => {
     e.preventDefault();
     if (!draggedItem) return;
 
-    const isAlreadyAvailable = availableItems.some(item => item.id === draggedItem.id);
-    if (isAlreadyAvailable) return;
-
-    setZones(prev => {
-      const newZones = { ...prev };
-      Object.keys(newZones).forEach(zone => {
-        newZones[zone] = newZones[zone].map(item => 
-          item?.id === draggedItem.id ? null : item
-        );
+    // ถ้าลากมาจากโซน
+    const isFromZone = Object.values(zones).flat().some(item => item?.id === draggedItem.id);
+    
+    if (isFromZone) {
+      setZones(prev => {
+        const newZones = { ...prev };
+        Object.keys(newZones).forEach(zone => {
+          newZones[zone] = newZones[zone].map(item => 
+            item?.id === draggedItem.id ? null : item
+          );
+        });
+        return newZones;
       });
-      return newZones;
-    });
+      setAvailableItems(prev => [...prev, draggedItem]);
+    } else if (dragOverItemId && draggedItem.id !== dragOverItemId) {
+      // สลับตำแหน่งภายใน Available Items
+      setAvailableItems(prev => {
+        const newItems = [...prev];
+        const draggedIndex = newItems.findIndex(item => item.id === draggedItem.id);
+        const dropIndex = newItems.findIndex(item => item.id === dragOverItemId);
+        
+        // สลับตำแหน่ง
+        [newItems[draggedIndex], newItems[dropIndex]] = [newItems[dropIndex], newItems[draggedIndex]];
+        
+        return newItems;
+      });
+    }
 
-    setAvailableItems(prev => [...prev, draggedItem]);
     setDraggedItem(null);
+    setDragOverItemId(null);
+  };
+
+  const handleDragOver = (e, itemId) => {
+    e.preventDefault();
+    if (draggedItem?.id !== itemId) {
+      setDragOverItemId(itemId);
+    }
   };
 
   const handleDragEnd = () => {
     setDraggedItem(null);
+    setDragOverItemId(null);
   };
 
   const resetAll = () => {
@@ -73,6 +98,8 @@ const DraggableWithZones = () => {
       { id: 3, color: 'bg-yellow-500', text: 'Item 3' },
       { id: 4, color: 'bg-purple-500', text: 'Item 4' }
     ]);
+    setDraggedItem(null);
+    setDragOverItemId(null);
   };
 
   const renderDropZone = (zoneType, index) => {
@@ -110,10 +137,13 @@ const DraggableWithZones = () => {
             {availableItems.map(item => (
               <div
                 key={item.id}
-                className={`w-14 h-14 sm:w-20 sm:h-20 ${item.color} rounded-lg flex items-center justify-center text-white cursor-move text-xs sm:text-base`}
+                className={`w-14 h-14 sm:w-20 sm:h-20 ${item.color} rounded-lg flex items-center justify-center text-white cursor-move text-xs sm:text-base 
+                  transition-transform duration-200
+                  ${dragOverItemId === item.id ? 'scale-110' : ''}`}
                 draggable
                 onDragStart={() => handleDragStart(item)}
                 onDragEnd={handleDragEnd}
+                onDragOver={(e) => handleDragOver(e, item.id)}
               >
                 {item.text}
               </div>
